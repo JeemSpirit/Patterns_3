@@ -1,141 +1,210 @@
 package Iterator
 
-// Модель товара
+interface CatalogIterator<T> {
+    fun hasNext(): Boolean
+    fun next(): T
+    fun next(count: Int): List<T>
+    fun reset()
+}
+
 data class Product(
+    val id: Int,
     val name: String,
     val category: String,
     val price: Double,
     val popularity: Int
 )
 
-// Интерфейс итератора
-interface CatalogIterator {
-    fun hasNext(): Boolean
-    fun next(): Product?
-    fun next(count: Int): List<Product>
-    fun getNext(count: Int): List<Product>
-    fun reset()
+class Catalog(private val products: List<Product>) {
+
+    fun getCategoryIterator(): CategoryIterator {
+        return CategoryIterator(products)
+    }
+
+    fun getPriceIterator(ascending: Boolean = true): PriceIterator {
+        return PriceIterator(products, ascending)
+    }
+
+    fun getPopularityIterator(): PopularityIterator {
+        return PopularityIterator(products)
+    }
+
+    fun filterByCategory(category: String): List<Product> {
+        return products.filter { it.category == category }
+    }
+
+    fun filterByPrice(minPrice: Double, maxPrice: Double): List<Product> {
+        return products.filter { it.price in minPrice..maxPrice }
+    }
+
+    fun filterByPopularity(minPopularity: Int): List<Product> {
+        return products.filter { it.popularity >= minPopularity }
+    }
 }
 
-// Базовый класс для итераторов
-abstract class BaseIterator(
-    protected val products: List<Product>
-) : CatalogIterator {
+class CategoryIterator(private val products: List<Product>) : CatalogIterator<Product> {
+    private val categories = products.map { it.category }.distinct()
+    private var currentCategoryIndex = 0
+    private var currentProductIndex = 0
 
-    protected var index = 0
+    override fun hasNext(): Boolean {
+        return currentCategoryIndex < categories.size
+    }
 
-    override fun reset() {
-        index = 0
+    override fun next(): Product {
+        if (!hasNext()) throw NoSuchElementException("Нет больше товаров по категориям")
+
+        val category = categories[currentCategoryIndex]
+        val categoryProducts = products.filter { it.category == category }
+
+        if (currentProductIndex >= categoryProducts.size) {
+            currentCategoryIndex++
+            currentProductIndex = 0
+            return next()
+        }
+
+        val product = categoryProducts[currentProductIndex]
+        currentProductIndex++
+
+        if (currentProductIndex >= categoryProducts.size) {
+            currentCategoryIndex++
+            currentProductIndex = 0
+        }
+
+        return product
     }
 
     override fun next(count: Int): List<Product> {
-        val result = getNext(count)
-        return result
-    }
-
-    override fun getNext(count: Int): List<Product> {
         val result = mutableListOf<Product>()
-        var c = count
-
-        while (hasNext() && c > 0) {
-            result.add(products[index])
-            index++
-            c--
+        for (i in 0 until count) {
+            if (hasNext()) {
+                result.add(next())
+            } else {
+                break
+            }
         }
         return result
     }
-}
 
-// Итератор по категориям
-class CategoryIterator(
-    all: List<Product>,
-    private val category: String
-) : BaseIterator(all.filter { it.category == category }) {
-
-    override fun hasNext(): Boolean = index < products.size
-
-    override fun next(): Product? {
-        return if (hasNext()) products[index++] else null
+    override fun reset() {
+        currentCategoryIndex = 0
+        currentProductIndex = 0
     }
 }
 
-// Итератор по цене (от дешевых к дорогим)
 class PriceIterator(
-    all: List<Product>
-) : BaseIterator(all.sortedBy { it.price }) {
+    private val products: List<Product>,
+    private val ascending: Boolean = true
+) : CatalogIterator<Product> {
+    private val sortedProducts = if (ascending) {
+        products.sortedBy { it.price }
+    } else {
+        products.sortedByDescending { it.price }
+    }
+    private var currentIndex = 0
 
-    override fun hasNext(): Boolean = index < products.size
+    override fun hasNext(): Boolean {
+        return currentIndex < sortedProducts.size
+    }
 
-    override fun next(): Product? {
-        return if (hasNext()) products[index++] else null
+    override fun next(): Product {
+        if (!hasNext()) throw NoSuchElementException("Нет больше товаров по цене")
+        return sortedProducts[currentIndex++]
+    }
+
+    override fun next(count: Int): List<Product> {
+        val result = mutableListOf<Product>()
+        for (i in 0 until count) {
+            if (hasNext()) {
+                result.add(next())
+            } else {
+                break
+            }
+        }
+        return result
+    }
+
+    override fun reset() {
+        currentIndex = 0
     }
 }
 
-// Итератор по популярности
-class PopularityIterator(
-    all: List<Product>
-) : BaseIterator(all.sortedByDescending { it.popularity }) {
+class PopularityIterator(private val products: List<Product>) : CatalogIterator<Product> {
+    private val sortedProducts = products.sortedByDescending { it.popularity }
+    private var currentIndex = 0
 
-    override fun hasNext(): Boolean = index < products.size
+    override fun hasNext(): Boolean {
+        return currentIndex < sortedProducts.size
+    }
 
-    override fun next(): Product? {
-        return if (hasNext()) products[index++] else null
+    override fun next(): Product {
+        if (!hasNext()) throw NoSuchElementException("Нет больше товаров по популярности")
+        return sortedProducts[currentIndex++]
+    }
+
+    override fun next(count: Int): List<Product> {
+        val result = mutableListOf<Product>()
+        for (i in 0 until count) {
+            if (hasNext()) {
+                result.add(next())
+            } else {
+                break
+            }
+        }
+        return result
+    }
+
+    override fun reset() {
+        currentIndex = 0
     }
 }
 
-// Каталог, использующий текущий итератор
-class Catalog(private val products: List<Product>) {
-
-    private var iterator: CatalogIterator? = null
-
-    fun setIterator(it: CatalogIterator) {
-        iterator = it
-    }
-
-    fun reset() {
-        iterator?.reset()
-    }
-
-    fun getNext(): Product? {
-        return iterator?.next()
-    }
-
-    fun getNext(count: Int): List<Product> {
-        return iterator?.getNext(count) ?: emptyList()
-    }
-}
-
-// Точка входа
 fun main() {
-    val items = listOf(
-        Product("Товар A", "Электроника", 1200.0, 50),
-        Product("Товар B", "Электроника", 900.0, 20),
-        Product("Товар C", "Одежда", 1500.0, 10),
-        Product("Товар D", "Одежда", 500.0, 70)
+    val products = listOf(
+        Product(1, "Ноутбук", "Электроника", 50000.0, 85),
+        Product(2, "Смартфон", "Электроника", 30000.0, 95),
+        Product(3, "Футболка", "Одежда", 1500.0, 70),
+        Product(4, "Книга", "Книги", 800.0, 60),
+        Product(5, "Наушники", "Электроника", 7000.0, 80),
+        Product(6, "Джинсы", "Одежда", 3500.0, 75),
+        Product(7, "Учебник", "Книги", 1200.0, 55)
     )
 
-    val catalog = Catalog(items)
+    val catalog = Catalog(products)
 
-    catalog.setIterator(CategoryIterator(items, "Одежда"))
-    println(catalog.getNext(2))
+    println("-------------------- Обход по категориям --------------------")
+    val categoryIterator = catalog.getCategoryIterator()
+    while (categoryIterator.hasNext()) {
+        println(categoryIterator.next())
+    }
 
-    catalog.setIterator(PriceIterator(items))
-    println(catalog.getNext())
+    println("\n-------------------- Обход по цене (по возрастанию) --------------------")
+    val priceIterator = catalog.getPriceIterator(true)
+    priceIterator.reset()
+    val firstThreeByPrice = priceIterator.next(3)
+    firstThreeByPrice.forEach { println(it) }
 
-    catalog.setIterator(PopularityIterator(items))
-    println(catalog.getNext(3))
+    println("\n-------------------- Обход по популярности --------------------")
+    val popularityIterator = catalog.getPopularityIterator()
+    popularityIterator.reset()
+    while (popularityIterator.hasNext()) {
+        println(popularityIterator.next())
+    }
+
+    println("\n-------------------- Фильтрация товаров --------------------")
+    println("Электроника: ${catalog.filterByCategory("Электроника").size} товаров")
+    println("Дорогие товары (от 10000): ${catalog.filterByPrice(10000.0, Double.MAX_VALUE).size} товаров")
+    println("Популярные товары (рейтинг >= 75): ${catalog.filterByPopularity(75).size} товаров")
 }
 
-// Ответ на вопрос:
-// Если в каталоге нет товаров, соответствующих определенному критерию (например, категория пустая),
-// итератор должен возвращать пустой набор данных. Для этого фильтрация товаров выполняется заранее,
-// и если результат фильтрации пустой, итератор работает с пустым списком.
-// Метод hasNext() в таком случае сразу возвращает false, а методы next() и getNext()
-// возвращают null или пустой список.
-// Изменения, которые вносятся в систему:
-// 1. Фильтрация и сортировка выполняются при создании итератора, поэтому отсутствие товаров
-//    автоматически обрабатывается без ошибок.
-// 2. Каталог должен корректно обрабатывать ситуацию, когда итератор возвращает пустые данные,
-//    чтобы интерфейс программы не ломался.
-// 3. При необходимости можно добавить механизм уведомления пользователя, что товаров не найдено.
-// Таким образом, система устойчиво работает даже при отсутствии подходящих товаров.
+/*
+ Вопрос: Как вы будете обрабатывать ситуацию, когда в каталоге нет товаров, соответствующих определенному критерию? Какие изменения внесете в систему?
+ Ответ: При отсутствии товаров, соответствующих критерию, итератор должен корректно обрабатывать эту ситуацию:
+ 1. hasNext() должен возвращать false,
+ 2. next() должен выбрасывать NoSuchElementException,
+ 3. можно добавить метод isEmpty() для проверки,
+ 4. в Catalog добавить методы проверки наличия товаров по критериям,
+ 5. можно реализовать Null Object Pattern, возвращая "пустой" итератор,
+ 6. добавить логирование для отслеживания таких ситуаций.
+ */
+

@@ -1,153 +1,226 @@
 package Command
 
-// Абстрактная команда
-abstract class Command(protected val lift: Lift) {
+abstract class Command {
     abstract fun execute()
     abstract fun undo()
 }
 
-// Модель лифта
-class Lift {
-    var floor: Int = 1
-        private set
-
-    var doorOpen: Boolean = false
-        private set
+class Elevator {
+    private var currentFloor: Int = 1
+    private var isDoorOpen: Boolean = false
 
     fun moveUp() {
-        floor++
-        println("Лифт поднялся на этаж $floor")
+        if (isDoorOpen) {
+            println("Ошибка: невозможно двигаться с открытыми дверьми")
+            return
+        }
+        currentFloor++
+        println("Лифт поднялся на этаж $currentFloor")
     }
 
     fun moveDown() {
-        if (floor > 1) {
-            floor--
-            println("Лифт опустился на этаж $floor")
+        if (isDoorOpen) {
+            println("Ошибка: невозможно двигаться с открытыми дверьми")
+            return
+        }
+        if (currentFloor > 1) {
+            currentFloor--
+            println("Лифт опустился на этаж $currentFloor")
         } else {
-            println("Лифт уже на первом этаже")
+            println("Ошибка: лифт уже на первом этаже")
         }
     }
 
     fun openDoor() {
-        doorOpen = true
-        println("Двери лифта открыты")
+        isDoorOpen = true
+        println("Двери лифта открыты на этаже $currentFloor")
     }
 
     fun closeDoor() {
-        doorOpen = false
+        isDoorOpen = false
         println("Двери лифта закрыты")
     }
+
+    fun getCurrentFloor(): Int = currentFloor
+    fun isDoorOpen(): Boolean = isDoorOpen
 }
 
-// Команда поднятия лифта
-class MoveUpCommand(lift: Lift) : Command(lift) {
+class MoveUpCommand(private val elevator: Elevator) : Command() {
+    private var previousFloor: Int = 0
+
     override fun execute() {
-        lift.moveUp()
+        previousFloor = elevator.getCurrentFloor()
+        elevator.moveUp()
     }
 
     override fun undo() {
-        lift.moveDown()
-    }
-}
-
-// Команда опускания лифта
-class MoveDownCommand(lift: Lift) : Command(lift) {
-    override fun execute() {
-        lift.moveDown()
-    }
-
-    override fun undo() {
-        lift.moveUp()
-    }
-}
-
-// Команда открытия дверей
-class OpenDoorCommand(lift: Lift) : Command(lift) {
-    override fun execute() {
-        lift.openDoor()
-    }
-
-    override fun undo() {
-        lift.closeDoor()
-    }
-}
-
-// Команда закрытия дверей
-class CloseDoorCommand(lift: Lift) : Command(lift) {
-    override fun execute() {
-        lift.closeDoor()
-    }
-
-    override fun undo() {
-        lift.openDoor()
-    }
-}
-
-// История команд
-class CommandHistory {
-    private val history = ArrayDeque<Command>()
-
-    fun push(command: Command) {
-        history.addLast(command)
-    }
-
-    fun pop(): Command? {
-        return if (history.isNotEmpty()) history.removeLast() else null
-    }
-}
-
-// Контроллер лифта
-class LiftControl(private val lift: Lift) {
-
-    private val history = CommandHistory()
-
-    fun executeCommand(command: Command) {
-        command.execute()
-        history.push(command)
-    }
-
-    fun undoLast() {
-        val last = history.pop()
-        if (last != null) {
-            println("Отмена последней команды")
-            last.undo()
-        } else {
-            println("История пуста, отменять нечего")
+        if (previousFloor < elevator.getCurrentFloor()) {
+            elevator.moveDown()
         }
     }
 }
 
-// Точка входа
-fun main() {
-    val lift = Lift()
-    val controller = LiftControl(lift)
+class MoveDownCommand(private val elevator: Elevator) : Command() {
+    private var previousFloor: Int = 0
 
-    controller.executeCommand(MoveUpCommand(lift))
-    controller.executeCommand(MoveUpCommand(lift))
-    controller.executeCommand(OpenDoorCommand(lift))
-    controller.executeCommand(CloseDoorCommand(lift))
-    controller.executeCommand(MoveDownCommand(lift))
+    override fun execute() {
+        previousFloor = elevator.getCurrentFloor()
+        elevator.moveDown()
+    }
 
-    controller.undoLast()
-    controller.undoLast()
-    controller.undoLast()
+    override fun undo() {
+        if (previousFloor > elevator.getCurrentFloor()) {
+            elevator.moveUp()
+        }
+    }
 }
 
-// Ответ на вопрос:
-// Отмена нескольких последних команд реализуется с помощью структуры данных стек (Command.CommandHistory),
-// где каждая выполненная команда помещается в историю. Для отмены нескольких команд подряд
-// вызывается undoLast() столько раз, сколько требуется, и каждый раз из стека извлекается последняя команда,
-// после чего вызывается ее метод undo().
-//
-// Ограничения такой системы:
-// 1. Не каждая команда может быть безопасно отменена, если она меняет состояние, которое невозможно восстановить
-//    (например, необратимые операции, команды, зависящие от внешних ресурсов).
-// 2. Объем памяти истории ограничивает количество возможных откатов — слишком большая история приводит к росту памяти.
-// 3. Команды должны содержать достаточную информацию для восстановления предыдущего состояния,
-//    иначе откат не сможет вернуть систему в корректное состояние.
-// 4. Если состояние лифта изменяется вне командного интерфейса, история перестает отражать реальное состояние,
-//    и undo может привести к непредсказуемым результатам.
-// 5. При сложных зависимостях между командами простой стек откатов может быть недостаточен,
-//    так как некоторые операции могут блокировать или влиять на другие.
-// Таким образом, система отмены работает корректно при условии,
-// что все действия лифта выполняются строго через команды и каждая команда поддерживает обратимость.
+class OpenDoorCommand(private val elevator: Elevator) : Command() {
+    private var wasDoorOpen: Boolean = false
+
+    override fun execute() {
+        wasDoorOpen = elevator.isDoorOpen()
+        elevator.openDoor()
+    }
+
+    override fun undo() {
+        if (wasDoorOpen != elevator.isDoorOpen()) {
+            elevator.closeDoor()
+        }
+    }
+}
+
+class CloseDoorCommand(private val elevator: Elevator) : Command() {
+    private var wasDoorOpen: Boolean = false
+
+    override fun execute() {
+        wasDoorOpen = elevator.isDoorOpen()
+        elevator.closeDoor()
+    }
+
+    override fun undo() {
+        if (wasDoorOpen != elevator.isDoorOpen()) {
+            elevator.openDoor()
+        }
+    }
+}
+
+class CommandHistory {
+    private val history = mutableListOf<Command>()
+
+    fun addCommand(command: Command) {
+        history.add(command)
+    }
+
+    fun undoLast(): Boolean {
+        if (history.isEmpty()) return false
+        val lastCommand = history.removeAt(history.size - 1)
+        lastCommand.undo()
+        return true
+    }
+
+    fun undoLastN(n: Int): Int {
+        var undoneCount = 0
+        for (i in 0 until n) {
+            if (undoLast()) {
+                undoneCount++
+            } else {
+                break
+            }
+        }
+        return undoneCount
+    }
+
+    fun clearHistory() {
+        history.clear()
+    }
+
+    fun getHistorySize(): Int = history.size
+}
+
+class LiftControl {
+    private val elevator = Elevator()
+    private val history = CommandHistory()
+
+    fun moveUp() {
+        val command = MoveUpCommand(elevator)
+        command.execute()
+        history.addCommand(command)
+    }
+
+    fun moveDown() {
+        val command = MoveDownCommand(elevator)
+        command.execute()
+        history.addCommand(command)
+    }
+
+    fun openDoor() {
+        val command = OpenDoorCommand(elevator)
+        command.execute()
+        history.addCommand(command)
+    }
+
+    fun closeDoor() {
+        val command = CloseDoorCommand(elevator)
+        command.execute()
+        history.addCommand(command)
+    }
+
+    fun undoLast() {
+        if (history.undoLast()) {
+            println("Отмена последней команды выполнена")
+        } else {
+            println("История команд пуста")
+        }
+    }
+
+    fun undoLastNCommands(n: Int) {
+        val undone = history.undoLastN(n)
+        println("Отменено $undone команд из $n запрошенных")
+    }
+
+    fun getCurrentStatus() {
+        println("Текущий этаж: ${elevator.getCurrentFloor()}")
+        println("Двери: ${if (elevator.isDoorOpen()) "открыты" else "закрыты"}")
+        println("История команд: ${history.getHistorySize()}")
+    }
+}
+
+fun main() {
+    val liftControl = LiftControl()
+
+    println("-------------------- Тестирование системы лифта --------------------")
+
+    liftControl.getCurrentStatus()
+    println("\n1. Открываем двери")
+    liftControl.openDoor()
+
+    println("\n2. Закрываем двери")
+    liftControl.closeDoor()
+
+    println("\n3. Поднимаемся на этаж")
+    liftControl.moveUp()
+    liftControl.moveUp()
+
+    println("\n4. Открываем двери")
+    liftControl.openDoor()
+
+    println("\n5. Отменяем последнюю команду")
+    liftControl.undoLast()
+
+    println("\n6. Отменяем 3 последние команды")
+    liftControl.undoLastNCommands(3)
+
+    println("\n7. Текущий статус:")
+    liftControl.getCurrentStatus()
+}
+
+/*
+ Вопрос: Как вы реализуете отмену нескольких последних команд? Какие ограничения могут возникнуть в вашей системе?
+ Ответ: Для отмены нескольких команд реализован метод undoLastN(n: Int) в CommandHistory, который последовательно отменяет n команд.
+ Ограничения:
+ 1. Отмена может работать некорректно, если команды имеют взаимные зависимости (например, открытие дверей зависит от предыдущих движений).
+ 2. Некоторые команды могут быть не полностью обратимыми (например, если при отмене движения лифт занят).
+ 3. Большая история команд потребляет память.
+ 4. Отмена команд должна сохранять инварианты системы (состояние дверей при движении).
+ */

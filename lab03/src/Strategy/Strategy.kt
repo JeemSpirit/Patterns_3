@@ -1,101 +1,84 @@
 package Strategy
 
-// Стратегия оплаты
 abstract class PaymentStrategy {
     abstract fun processPayment(amount: Double)
 }
 
-// --- Конкретные стратегии ---
-
-// Оплата кредитной картой
-class CreditCardPayment(
-    private val cardNumber: String,
-    private val ownerName: String
-) : PaymentStrategy() {
-
+class CashPayment : PaymentStrategy() {
     override fun processPayment(amount: Double) {
-        println("Оплата $amount руб. кредитной картой $cardNumber на имя $ownerName.")
-        println("Транзакция успешно проведена.")
+        println("Обработка наличного платежа на сумму: $amount руб.")
+        println("Ожидание получения наличных...")
+        println("Платёж успешно завершён")
     }
 }
 
-// Оплата через PayPal
-class PayPalPayment(
-    private val email: String
-) : PaymentStrategy() {
-
+class BankTransferPayment : PaymentStrategy() {
     override fun processPayment(amount: Double) {
-        println("Оплата $amount руб. через PayPal аккаунт $email.")
-        println("Платёж успешно подтверждён PayPal.")
+        println("Обработка банковского перевода на сумму: $amount руб.")
+        println("Соединение с банковской системой...")
+        println("Средства успешно переведены")
     }
 }
 
-// Наличные при получении
 class CashOnDeliveryPayment : PaymentStrategy() {
-
     override fun processPayment(amount: Double) {
-        println("Оплата наличными при получении заказа.")
-        println("Заказ будет оплачен курьеру при доставке.")
+        println("Оформление оплаты при получении на сумму: $amount руб.")
+        println("Заказ будет оплачен курьеру при доставке")
+        println("Статус: ожидание доставки")
     }
 }
 
-// Оплата через «Сбербанк Онлайн»
-class SberbankOnlinePayment(
-    private val phoneNumber: String
-) : PaymentStrategy() {
+class Order(private var paymentStrategy: PaymentStrategy) {
 
-    override fun processPayment(amount: Double) {
-        println("Отправка запроса в API Сбербанк Онлайн для номера $phoneNumber...")
-        println("Сбербанк подтвердил оплату $amount руб.")
-    }
-}
-
-
-// Класс заказа, использующий стратегию оплаты
-class Order1(
-    private var paymentStrategy: PaymentStrategy
-) {
     fun setPaymentStrategy(strategy: PaymentStrategy) {
         this.paymentStrategy = strategy
     }
 
-    fun checkout(amount: Double) {
-        println("Начало обработки платежа...")
+    fun processOrder(amount: Double) {
+        println("Обработка заказа...")
         paymentStrategy.processPayment(amount)
-        println("Заказ успешно оплачен.\n")
+        println("Заказ успешно обработан")
     }
 }
 
-
-// 1. Создать новый класс, который реализует интерфейс Strategy.PaymentStrategy.
-//    Например: class CryptoPayment : Strategy.PaymentStrategy { … }
-//
-// 2. Переопределить метод processPayment(amount: Double)
-//    и реализовать в нём логику оплаты.
-//
-// 3. В нужный момент передать объект новой стратегии в Template_Method.Order:
-//       order.setPaymentStrategy(CryptoPayment())
-//
-// 4. НЕ НУЖНО изменять уже существующие классы.
-//    Паттерн Strategy обеспечивает расширяемость.
-
 fun main() {
+    val order = Order(CashPayment())
 
-    // Заказ
-    val order = Order1(CreditCardPayment("1234 5678 9012 3456", "Иван Иванов"))
+    println("-----------------Тест 1: Наличный платёж--------------------------")
+    order.processOrder(1500.0)
 
-    // Оплата кредиткой
-    order.checkout(1500.0)
+    println("\n---------------------Тест 2: Смена на банковский перевод------------------")
+    order.setPaymentStrategy(BankTransferPayment())
+    order.processOrder(3200.0)
 
-    // Клиент меняет способ оплаты на PayPal
-    order.setPaymentStrategy(PayPalPayment("user@example.com"))
-    order.checkout(1500.0)
-
-    // Наличные при получении
+    println("\n------------------Тест 3: Смена на оплату при получении--------------------")
     order.setPaymentStrategy(CashOnDeliveryPayment())
-    order.checkout(1500.0)
-
-    // Сбербанк Онлайн
-    order.setPaymentStrategy(SberbankOnlinePayment("+79991234567"))
-    order.checkout(1500.0)
+    order.processOrder(899.99)
 }
+
+/*
+Инструкция по добавлению нового метода оплаты (например, криптовалюты):
+
+1. Создать новый класс, наследующийся от PaymentStrategy
+2. Реализовать метод processPayment(amount: Double) в новом классе
+3. В методе processPayment описать логику обработки платежа
+4. Для использования нового метода:
+   - Создать экземпляр нового класса
+   - Передать его в Order через конструктор или метод setPaymentStrategy()
+
+Пример структуры нового класса:
+
+class CryptoPayment : PaymentStrategy() {
+    override fun processPayment(amount: Double) {
+        // Реализация обработки криптовалютного платежа
+        println("Обработка криптовалютного платежа...")
+        println("Конвертация суммы в криптовалюту...")
+        println("Генерация QR-кода для оплаты...")
+    }
+}
+
+Использование:
+val cryptoPayment = CryptoPayment()
+order.setPaymentStrategy(cryptoPayment)
+order.processOrder(5000.0)
+*/

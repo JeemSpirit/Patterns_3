@@ -1,18 +1,15 @@
 package State
 
-// Абстрактное состояние заказа
 abstract class OrderState(protected val order: Order6) {
 
     abstract fun processOrder()
     abstract fun getStatus(): String
 
-    // Дополнительно: механизм безопасных переходов
     protected fun changeState(newState: OrderState) {
         order.state = newState
     }
 }
 
-// Состояние: Новый заказ
 class NewState(order: Order6) : OrderState(order) {
 
     override fun processOrder() {
@@ -23,7 +20,6 @@ class NewState(order: Order6) : OrderState(order) {
     override fun getStatus(): String = "Новый"
 }
 
-// Состояние: В обработке
 class ProcessingState(order: Order6) : OrderState(order) {
 
     override fun processOrder() {
@@ -34,7 +30,6 @@ class ProcessingState(order: Order6) : OrderState(order) {
     override fun getStatus(): String = "В обработке"
 }
 
-// Состояние: Отправлен
 class ShippedState(order: Order6) : OrderState(order) {
 
     override fun processOrder() {
@@ -45,7 +40,6 @@ class ShippedState(order: Order6) : OrderState(order) {
     override fun getStatus(): String = "Отправлен"
 }
 
-// Состояние: Доставлен
 class DeliveredState(order: Order6) : OrderState(order) {
 
     override fun processOrder() {
@@ -55,7 +49,6 @@ class DeliveredState(order: Order6) : OrderState(order) {
     override fun getStatus(): String = "Доставлен"
 }
 
-// Состояние: Отменен
 class CancelledState(order: Order6) : OrderState(order) {
 
     override fun processOrder() {
@@ -66,7 +59,6 @@ class CancelledState(order: Order6) : OrderState(order) {
 }
 
 
-// Класс заказа
 class Order6 {
 
     var state: OrderState = NewState(this)
@@ -77,7 +69,6 @@ class Order6 {
 
     fun getStatus(): String = state.getStatus()
 
-    // Метод отмены заказа
     fun cancel() {
         if (state is DeliveredState) {
             println("Доставленный заказ нельзя отменить")
@@ -89,7 +80,6 @@ class Order6 {
 }
 
 
-// Точка входа
 fun main() {
     val order = Order6()
 
@@ -106,20 +96,22 @@ fun main() {
     order.cancel()
 }
 
-// Ответ на вопрос:
-// Корректность переходов между состояниями обеспечивается тем,
-// что каждый класс состояния самостоятельно определяет,
-// в какое следующее состояние можно перейти через метод changeState().
-// Таким образом, код переходов изолирован внутри конкретного состояния,
-// и невозможные переходы просто не реализованы.
-// Например, состояние State.DeliveredState не вызывает смену состояния,
-// поэтому возврат в более ранние этапы исключен.
-//
-// Для управления состояниями могут быть добавлены методы:
-// 1) cancel() — отмена заказа (реализовано в классе Template_Method.Order).
-// 2) returnToPrevious() или repeatProcessing() — только если логика бизнеса допускает подобные переходы.
-// 3) validateTransition(newState) — метод проверки корректности перехода,
-//    если требуется централизованный контроль.
-//
-// Паттерн State гарантирует, что корректность переходов обеспечивается на уровне самих состояний,
-// так как каждое состояние знает, куда можно переходить, а куда нельзя.
+/*
+ Ответ на вопрос:
+ Корректность переходов между состояниями обеспечивается тем,
+ что каждый класс состояния самостоятельно определяет,
+ в какое следующее состояние можно перейти через метод changeState().
+ Таким образом, код переходов изолирован внутри конкретного состояния,
+ и невозможные переходы просто не реализованы.
+ Например, состояние State.DeliveredState не вызывает смену состояния,
+ поэтому возврат в более ранние этапы исключен.
+
+ Для управления состояниями могут быть добавлены методы:
+ 1. cancel() — отмена заказа (реализовано в классе Template_Method.Order).
+ 2. returnToPrevious() или repeatProcessing() — только если логика бизнеса допускает подобные переходы.
+ 3. validateTransition(newState) — метод проверки корректности перехода,
+    если требуется централизованный контроль.
+
+ Паттерн State гарантирует, что корректность переходов обеспечивается на уровне самих состояний,
+ так как каждое состояние знает, куда можно переходить, а куда нельзя.
+ */
